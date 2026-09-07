@@ -9,7 +9,7 @@ httproute:
   hostnames:
     - longhorn.asgard.com
     - longhorn.asgard.org
-  path: /longhorn
+  path: /
   pathType: PathPrefix
   annotations:
     custom-annotation: "value"

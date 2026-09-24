@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+    app: pihole  
+  name: pihole
+  namespace: pihole
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pihole
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: pihole
+    spec:
+      containers:
+      - image: pihole/pihole
+        name: pihole
+        env:
+        - name: TZ
+          value: "Africa/Johannesburg"
+        - name: WEBPASSWORD
+          value: "password"
+        ports:
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 53
+          name: dns-udp
+          protocol: UDP
+        - containerPort: 80
+          name: web
+          protocol: TCP
+        volumeMounts:
+        - name: pihole-etc-volume
+          mountPath: /etc/pihole
+        - name: pihole-dnsmasq-volume
+          mountPath: /etc/dnsmasq.d
+      volumes:
+      - name: pihole-etc-volume
+        persistentVolumeClaim:
+          claimName: pihole-etc-pvc 
+      - name: pihole-dnsmasq-volume
+        persistentVolumeClaim:
+          claimName: pihole-dnsmasq-pvc 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole-tcp-service
+  namespace: pihole 
+spec:
+  type: LoadBalancer
+  selector:
+    app: pihole
+  ports:
+  - port: 53
+    targetPort: 53
+    protocol: TCP
+    name: dns-tcp
+  - port: 8080 
+    targetPort: 80
+    protocol: TCP
+    name: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole-udp-service
+  namespace: pihole 
+spec:
+  type: LoadBalancer
+  selector:
+    app: pihole
+  ports:
+  - port: 53
+    targetPort: 53
+    protocol: UDP
+    name: dns-udp
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pihole-ingress
+  namespace: pihole 
+spec:
+  rules:
+  - host: pihole.my.network
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pihole
+            port:
+              number: 8080
